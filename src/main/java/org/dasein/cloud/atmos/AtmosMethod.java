@@ -487,6 +487,12 @@ public class AtmosMethod {
                 }
                 Storage<org.dasein.util.uom.storage.Byte> s = new Storage<org.dasein.util.uom.storage.Byte>(Long.parseLong(size), Storage.BYTE);
 
+                while( !bucket.equals("/") && bucket.startsWith("/") ) {
+                    bucket = bucket.substring(1);
+                }
+                while( !bucket.equals("/") && bucket.endsWith("/") ) {
+                    bucket = bucket.substring(0, bucket.length()-1);
+                }
                 return Blob.getInstance(regionId, "/rest/objects/" + objectId, bucket, objectName, provider.parseTime(ctime), s);
             }
             else {
@@ -772,6 +778,9 @@ public class AtmosMethod {
         }
         if( objectId == null ) {
             return null;
+        }
+        while( !directory.equals("/") && directory.startsWith("/") ) {
+            directory = directory.substring(1);
         }
         while( !directory.equals("/") && directory.endsWith("/") ) {
             directory = directory.substring(0, directory.length()-1);

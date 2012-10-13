@@ -114,7 +114,7 @@ public class Atmos extends AbstractCloud {
     }
 
     public @Nonnegative long parseTime(@Nonnull String timestamp) {
-        DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ"); //2009-02-03T05:26:32.612278
+        DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"); //2009-02-03T05:26:32.612278
 
         try {
             return df.parse(timestamp).getTime();
