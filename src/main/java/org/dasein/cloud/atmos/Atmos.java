@@ -21,6 +21,10 @@ import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.atmos.storage.AtmosStorageServices;
+import org.dasein.cloud.compute.ComputeServices;
+import org.dasein.cloud.compute.VirtualMachineSupport;
+import org.dasein.cloud.storage.BlobStoreSupport;
+import org.dasein.cloud.storage.StorageServices;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -105,12 +109,11 @@ public class Atmos extends AbstractCloud {
         SimpleDateFormat fmt;
 
         fmt = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z");
-        fmt.setTimeZone(TimeZone.getTimeZone("UTC"));
+        fmt.setTimeZone(TimeZone.getTimeZone("GMT"));
         return fmt.format(new Date(timestamp));
     }
 
-    public @Nonnegative
-    long parseTime(@Nonnull String timestamp) {
+    public @Nonnegative long parseTime(@Nonnull String timestamp) {
         DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ"); //2009-02-03T05:26:32.612278
 
         try {
@@ -126,5 +129,26 @@ public class Atmos extends AbstractCloud {
                 return 0L;
             }
         }
+    }
+
+    @Override
+    public String testContext() {
+        ProviderContext ctx = getContext();
+
+        if( ctx == null ) {
+            return null;
+        }
+        try {
+            StorageServices storage = getStorageServices();
+            BlobStoreSupport support = storage.getBlobStoreSupport();
+
+            if( support == null || !support.isSubscribed() ) {
+                return null;
+            }
+        }
+        catch( Throwable t ) {
+            return null;
+        }
+        return ctx.getAccountNumber();
     }
 }

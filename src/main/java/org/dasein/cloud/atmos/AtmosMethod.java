@@ -18,13 +18,12 @@ package org.dasein.cloud.atmos;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.http.Header;
-import org.apache.http.HeaderElement;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpVersion;
-import org.apache.http.ParseException;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
@@ -58,6 +57,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -104,7 +104,7 @@ public class AtmosMethod {
             logger.error("UTF-8 error: " + e.getMessage());
             throw new InternalException(e);
         }
-        method.addHeader("x-emc-date", date);
+        method.addHeader("Date", date);
 
         for( Header h : method.getAllHeaders() ) {
             if( h.getName().toLowerCase().startsWith("x-emc") ) {
@@ -119,13 +119,12 @@ public class AtmosMethod {
     }
 
     public @Nonnull Blob create(@Nonnull String bucket, @Nonnull String name) throws CloudException, InternalException {
-        list("/");
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER - " + AtmosMethod.class.getName() + ".create(" + bucket + "," + name + ")");
         }
         if( wire.isDebugEnabled() ) {
             wire.debug("");
-            wire.debug("--------------------------------------------------------------------------------------");
+            wire.debug(">>> [POST/create directory] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
         }
         try {
             ProviderContext ctx = provider.getContext();
@@ -172,10 +171,13 @@ public class AtmosMethod {
             int status = response.getStatusLine().getStatusCode();
 
             if( status == HttpServletResponse.SC_CREATED ) {
-                return toBlob(ctx, response, bucket + name, null, null);
+                if( !bucket.equals("/") ) {
+                    name = bucket + name;
+                }
+                return toBlob(ctx, response, name, null, null);
             }
             else {
-                  throw new AtmosException(response);
+                throw new AtmosException(response);
             }
         }
         finally {
@@ -183,7 +185,163 @@ public class AtmosMethod {
                 logger.trace("EXIT - " + AtmosMethod.class.getName() + ".create()");
             }
             if( wire.isDebugEnabled() ) {
-                wire.debug("--------------------------------------------------------------------------------------");
+                wire.debug("<<< [POST/create directory] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
+                wire.debug("");
+            }
+        }
+    }
+
+    public void delete(@Nonnull String bucketName, @Nullable String objectName) throws CloudException, InternalException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER - " + AtmosMethod.class.getName() + ".delete(" + bucketName + ")");
+        }
+        if( wire.isDebugEnabled() ) {
+            wire.debug("");
+            wire.debug(">>> [DELETE] -> " + bucketName + "--------------------------------------------------------------------------------------");
+        }
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new CloudException("No context was set for this request");
+            }
+            if( !bucketName.endsWith("/") ) {
+                bucketName = bucketName + "/";
+            }
+            if( !bucketName.startsWith("/") ) {
+                bucketName = "/" + bucketName;
+            }
+            if( objectName != null ) {
+                while( objectName.startsWith("/") && !objectName.equals("/") ) {
+                    objectName = objectName.substring(1);
+                }
+                if( !objectName.equals("/") ) {
+                    bucketName = bucketName + objectName;
+                }
+            }
+            String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, bucketName);
+            HttpDelete delete = new HttpDelete(endpoint);
+            HttpClient client = getClient(endpoint);
+
+            delete.addHeader("Accept", "*/*");
+            delete.addHeader("Content-Type", "application/octet-stream");
+            authorize(ctx, delete, "application/octet-stream", null);
+            if( wire.isDebugEnabled() ) {
+                wire.debug(delete.getRequestLine().toString());
+                for( Header header : delete.getAllHeaders() ) {
+                    wire.debug(header.getName() + ": " + header.getValue());
+                }
+                wire.debug("");
+            }
+            HttpResponse response;
+
+            try {
+                response = client.execute(delete);
+                if( wire.isDebugEnabled() ) {
+                    wire.debug(response.getStatusLine().toString());
+                }
+            }
+            catch( IOException e ) {
+                logger.error("I/O error from server communications: " + e.getMessage());
+                e.printStackTrace();
+                throw new InternalException(e);
+            }
+            int status = response.getStatusLine().getStatusCode();
+
+            if( status != HttpServletResponse.SC_NO_CONTENT ) {
+                throw new AtmosException(response);
+            }
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT - " + AtmosMethod.class.getName() + ".delete()");
+            }
+            if( wire.isDebugEnabled() ) {
+                wire.debug("<<< [DELETE] -> " + bucketName + "--------------------------------------------------------------------------------------");
+                wire.debug("");
+            }
+        }
+    }
+
+    public @Nonnull InputStream download(@Nonnull String bucket, @Nonnull String name) throws CloudException, InternalException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER - " + AtmosMethod.class.getName() + ".download(" + bucket + "," + name + ")");
+        }
+        if( wire.isDebugEnabled() ) {
+            wire.debug("");
+            wire.debug(">>> [GET/download] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
+        }
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new CloudException("No context was set for this request");
+            }
+            if( !bucket.endsWith("/") ) {
+                bucket = bucket + "/";
+            }
+            if( !bucket.startsWith("/") ) {
+                bucket = "/" + bucket;
+            }
+            if( !name.endsWith("/") ) {
+                name = name + "/";
+            }
+            String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, bucket + name);
+            HttpGet get = new HttpGet(endpoint);
+            HttpClient client = getClient(endpoint);
+
+            get.addHeader("Accept", "*/*");
+            authorize(ctx, get, "", null);
+            if( wire.isDebugEnabled() ) {
+                wire.debug(get.getRequestLine().toString());
+                for( Header header : get.getAllHeaders() ) {
+                    wire.debug(header.getName() + ": " + header.getValue());
+                }
+                wire.debug("");
+            }
+            HttpResponse response;
+
+            try {
+                response = client.execute(get);
+                if( wire.isDebugEnabled() ) {
+                    wire.debug(response.getStatusLine().toString());
+                }
+            }
+            catch( IOException e ) {
+                logger.error("I/O error from server communications: " + e.getMessage());
+                e.printStackTrace();
+                throw new InternalException(e);
+            }
+            int status = response.getStatusLine().getStatusCode();
+
+            if( status == HttpServletResponse.SC_OK ) {
+                HttpEntity entity = response.getEntity();
+
+                if( entity == null ) {
+                    throw new CloudException("No content was returned");
+                }
+                if( wire.isDebugEnabled() ) {
+                    wire.debug("[CONTENT:" + entity.getContentType() + " - " + entity.getContentLength() + "]");
+                }
+                try {
+                    return entity.getContent();
+                }
+                catch( IOException e ) {
+                    logger.error("I/O error from server communications: " + e.getMessage());
+                    e.printStackTrace();
+                    throw new InternalException(e);
+                }
+            }
+            else {
+                throw new AtmosException(response);
+            }
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT - " + AtmosMethod.class.getName() + ".download()");
+            }
+            if( wire.isDebugEnabled() ) {
+                wire.debug("<<< [GET/download] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
                 wire.debug("");
             }
         }
@@ -228,18 +386,122 @@ public class AtmosMethod {
             throw new CloudException("No endpoint was set for this request");
         }
         url.append(endpoint);
-        if( target != null && !target.startsWith("/") ) {
-            target = "/" + target;
-        }
-        else if( target == null ) {
-            target = "/";
-        }
-        if( !endpoint.endsWith("/") ) {
-            url.append("/");
-        }
         url.append(type.toEndpoint());
-        url.append(target);
+
+        if( target != null && !target.equals("/") ) {
+            if( !target.startsWith("/") ) {
+                target = "/" + target;
+            }
+            url.append(target);
+        }
         return url.toString();
+    }
+
+    public @Nullable Blob info(@Nonnull String bucket, @Nonnull String name) throws CloudException, InternalException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER - " + AtmosMethod.class.getName() + ".info(" + bucket + "," + name + ")");
+        }
+        if( wire.isDebugEnabled() ) {
+            wire.debug("");
+            wire.debug(">>> [GET/info] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
+        }
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new CloudException("No context was set for this request");
+            }
+            String regionId = ctx.getRegionId();
+
+            if( regionId == null ) {
+                throw new CloudException("No region was set for this request");
+            }
+            String target;
+
+            if( !bucket.endsWith("/") ) {
+                bucket = bucket + "/";
+            }
+            if( !bucket.startsWith("/") ) {
+                bucket = "/" + bucket;
+            }
+            target = bucket;
+            while( name.startsWith("/") && !name.equals("/") ) {
+                name = name.substring(1);
+            }
+            if( !name.equals("/") ) {
+                target = bucket + name;
+            }
+            String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, target);
+            HttpGet get = new HttpGet(endpoint + "?metadata/system");
+            HttpClient client = getClient(endpoint);
+
+            get.addHeader("Accept", "*/*");
+            authorize(ctx, get, "", null);
+            if( wire.isDebugEnabled() ) {
+                wire.debug(get.getRequestLine().toString());
+                for( Header header : get.getAllHeaders() ) {
+                    wire.debug(header.getName() + ": " + header.getValue());
+                }
+                wire.debug("");
+            }
+            HttpResponse response;
+
+            try {
+                response = client.execute(get);
+                if( wire.isDebugEnabled() ) {
+                    wire.debug(response.getStatusLine().toString());
+                }
+            }
+            catch( IOException e ) {
+                logger.error("I/O error from server communications: " + e.getMessage());
+                e.printStackTrace();
+                throw new InternalException(e);
+            }
+            int status = response.getStatusLine().getStatusCode();
+
+            if( status == HttpServletResponse.SC_NOT_FOUND ) {
+                return null;
+            }
+            if( status == HttpServletResponse.SC_OK ) {
+                HttpEntity entity = response.getEntity();
+
+                if( entity == null ) {
+                    return null;
+                }
+                Header header = response.getFirstHeader("x-emc-meta");
+                Properties p = toProperties(header);
+
+                String objectName = p.getProperty("objname");
+                String objectId = p.getProperty("objectid");
+                String ctime = p.getProperty("ctime");
+                String size = p.getProperty("size");
+
+                if( objectName == null || objectId == null ) {
+                    return null;
+                }
+                if( size == null ) {
+                    size = "0";
+                }
+                if( ctime == null ) {
+                    ctime = "0";
+                }
+                Storage<org.dasein.util.uom.storage.Byte> s = new Storage<org.dasein.util.uom.storage.Byte>(Long.parseLong(size), Storage.BYTE);
+
+                return Blob.getInstance(regionId, "/rest/objects/" + objectId, bucket, objectName, provider.parseTime(ctime), s);
+            }
+            else {
+                throw new AtmosException(response);
+            }
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT - " + AtmosMethod.class.getName() + ".download()");
+            }
+            if( wire.isDebugEnabled() ) {
+                wire.debug("<<< [GET/info] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
+                wire.debug("");
+            }
+        }
     }
 
     public Iterable<Blob> list(@Nonnull String directory) throws CloudException, InternalException {
@@ -248,7 +510,7 @@ public class AtmosMethod {
         }
         if( wire.isDebugEnabled() ) {
             wire.debug("");
-            wire.debug("--------------------------------------------------------------------------------------");
+            wire.debug(">>> [GET] -> " + directory + "--------------------------------------------------------------------------------------");
         }
         try {
             ProviderContext ctx = provider.getContext();
@@ -299,11 +561,13 @@ public class AtmosMethod {
                     String xml = EntityUtils.toString(entity);
 
                     if( wire.isDebugEnabled() ) {
-                        wire.debug(xml);
+                         wire.debug(xml);
                     }
+                    ByteArrayInputStream bas = new ByteArrayInputStream(xml.getBytes());
+
                     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-                    DocumentBuilder builder = factory.newDocumentBuilder();
-                    Document doc = builder.parse(xml);
+                    DocumentBuilder parser = factory.newDocumentBuilder();
+                    Document doc = parser.parse(bas);
 
                     NodeList blocks = doc.getElementsByTagName("DirectoryEntry");
 
@@ -343,18 +607,89 @@ public class AtmosMethod {
                 logger.trace("EXIT - " + AtmosMethod.class.getName() + ".list()");
             }
             if( wire.isDebugEnabled() ) {
-                wire.debug("--------------------------------------------------------------------------------------");
+                wire.debug("<<< [GET] " + directory + "--------------------------------------------------------------------------------------");
                 wire.debug("");
             }
         }
 
     }
 
+    public void rename(@Nonnull String root, @Nonnull String oldName, @Nonnull String newName) throws CloudException, InternalException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER - " + AtmosMethod.class.getName() + ".rename(" + root + "," + oldName + "," + newName + ")");
+        }
+        if( wire.isDebugEnabled() ) {
+            wire.debug("");
+            wire.debug(">>> [POST/rename] -> " + root + " / " + oldName + " / " + newName + "--------------------------------------------------------------------------------------");
+        }
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new CloudException("No context was set for this request");
+            }
+            if( !root.endsWith("/") ) {
+                root = root + "/";
+            }
+            if( !root.startsWith("/") ) {
+                root = "/" + root;
+            }
+            if( !oldName.endsWith("/") ) {
+                oldName = oldName + "/";
+            }
+            if( !newName.endsWith("/") ) {
+                newName = newName + "/";
+            }
+            String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, root + oldName);
+            HttpPost post = new HttpPost(endpoint + "?rename");
+            HttpClient client = getClient(endpoint);
+
+            post.addHeader("Accept", "*/*");
+            post.addHeader("Content-Type", "application/octet-stream");
+            post.addHeader("x-emc-path", root + "/" + newName);
+            authorize(ctx, post, "application/octet-stream", null);
+            if( wire.isDebugEnabled() ) {
+                wire.debug(post.getRequestLine().toString());
+                for( Header header : post.getAllHeaders() ) {
+                    wire.debug(header.getName() + ": " + header.getValue());
+                }
+                wire.debug("");
+            }
+            HttpResponse response;
+
+            try {
+                response = client.execute(post);
+                if( wire.isDebugEnabled() ) {
+                    wire.debug(response.getStatusLine().toString());
+                }
+            }
+            catch( IOException e ) {
+                logger.error("I/O error from server communications: " + e.getMessage());
+                e.printStackTrace();
+                throw new InternalException(e);
+            }
+            int status = response.getStatusLine().getStatusCode();
+
+            if( status != HttpServletResponse.SC_NO_CONTENT ) {
+                throw new AtmosException(response);
+            }
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT - " + AtmosMethod.class.getName() + ".rename()");
+            }
+            if( wire.isDebugEnabled() ) {
+                wire.debug("<<< [POST/rename] -> " +  root + " / " + oldName + " / " + newName  + "--------------------------------------------------------------------------------------");
+                wire.debug("");
+            }
+        }
+    }
+
     private @Nonnull String sign(@Nonnull ProviderContext ctx, @Nonnull String stringToSign) throws InternalException {
         try {
             Mac mac = Mac.getInstance("HmacSHA1");
 
-            mac.init(new SecretKeySpec(ctx.getAccessPrivate(), "HmacSHA1"));
+            mac.init(new SecretKeySpec(Base64.decodeBase64(new String(ctx.getAccessPrivate(), "utf-8")), "HmacSHA1"));
             return new String(Base64.encodeBase64(mac.doFinal(stringToSign.getBytes("UTF-8"))), "utf-8");
         }
         catch( NoSuchAlgorithmException e ) {
@@ -387,6 +722,7 @@ public class AtmosMethod {
         }
         String objectId = null, objectName = null;
         NodeList attrs = node.getChildNodes();
+        boolean bucket = false;
         Storage<?> size = null;
         long created = 0L;
 
@@ -399,15 +735,18 @@ public class AtmosMethod {
             else if( attr.getNodeName().equalsIgnoreCase("filename") && attr.hasChildNodes() ) {
                 objectName = attr.getFirstChild().getNodeValue().trim();
             }
+            else if( attr.getNodeName().equalsIgnoreCase("filetype") && attr.hasChildNodes() ) {
+                bucket = attr.getFirstChild().getNodeValue().trim().equalsIgnoreCase("directory");
+            }
             else if( (attr.getNodeName().equalsIgnoreCase("systemmetadatalist") || attr.getNodeName().equalsIgnoreCase("usermetadatalist")) && attr.hasChildNodes() ) {
                 NodeList metas = attr.getChildNodes();
 
                 for( int j=0; j<metas.getLength(); j++ ) {
                     Node meta = metas.item(j);
-                    String name = null, value = null;
 
-                    if( meta.hasChildNodes() ) {
+                    if( meta.getNodeName().equalsIgnoreCase("metadata") && meta.hasChildNodes() ) {
                         NodeList childNodes = meta.getChildNodes();
+                        String name = null, value = null;
 
                         for( int k=0; k<childNodes.getLength(); k++ ) {
                             Node child = childNodes.item(k);
@@ -419,13 +758,13 @@ public class AtmosMethod {
                                 value = child.getFirstChild().getNodeValue().trim();
                             }
                         }
-                    }
-                    if( name != null && value != null ) {
-                        if( name.equalsIgnoreCase("ctime") ) {
-                            created = provider.parseTime(value);
-                        }
-                        else if( name.equalsIgnoreCase("size") ) {
-                            size = new Storage<org.dasein.util.uom.storage.Byte>(Long.parseLong(value), Storage.BYTE);
+                        if( name != null && value != null ) {
+                            if( name.equalsIgnoreCase("itime") ) {
+                                created = provider.parseTime(value);
+                            }
+                            else if( name.equalsIgnoreCase("size") ) {
+                                size = new Storage<org.dasein.util.uom.storage.Byte>(Long.parseLong(value), Storage.BYTE);
+                            }
                         }
                     }
                 }
@@ -434,13 +773,23 @@ public class AtmosMethod {
         if( objectId == null ) {
             return null;
         }
-        if( objectName == null ) {
-            return Blob.getInstance(regionId, "/rest/objects/" + objectId, directory, created);
+        while( !directory.equals("/") && directory.endsWith("/") ) {
+            directory = directory.substring(0, directory.length()-1);
+        }
+        if( directory.equals("/") ) {
+            directory = null;
+        }
+        if( bucket ) {
+            return Blob.getInstance(regionId, "/rest/objects/" + objectId, (directory == null ? objectName : (directory + "/" + objectName)), created);
         }
         else {
+            if( size == null ) {
+                size = new Storage<Gigabyte>(0, Storage.GIGABYTE);
+            }
             return Blob.getInstance(regionId, "/rest/objects/" + objectId, directory, objectName, created, size);
         }
     }
+
     private @Nonnull Blob toBlob(@Nonnull ProviderContext ctx, @Nonnull HttpResponse response, @Nonnull String bucketName, @Nullable String objectName, @Nullable Storage<?> size) throws CloudException, InternalException {
         String regionId = ctx.getRegionId();
 
@@ -463,19 +812,47 @@ public class AtmosMethod {
                 created = provider.parseTime(value);
             }
         }
+        String directory = bucketName;
+        while( !directory.equals("/") && directory.endsWith("/") ) {
+            directory = directory.substring(0, directory.length()-1);
+        }
+        if( directory.equals("/") ) {
+            directory = null;
+        }
         if( objectName == null ) {
-            return Blob.getInstance(regionId, "/rest/objects/" + objectId, bucketName, created);
+            return Blob.getInstance(regionId, "/rest/objects/" + objectId, directory == null ? "/" : directory, created);
         }
         else {
             if( size == null ) {
                 size = new Storage<Gigabyte>(0, Storage.GIGABYTE);
             }
-            return Blob.getInstance(regionId, "/rest/objects/" + objectId, bucketName, objectName, created, size);
+            return Blob.getInstance(regionId, "/rest/objects/" + objectId, directory, objectName, created, size);
         }
     }
 
     private @Nonnull String toId(@Nonnull String location) {
         return location.substring("/rest/objects/".length());
+    }
+
+    private @Nonnull Properties toProperties(@Nonnull Header header) {
+        Properties p = new Properties();
+
+        if( header.getValue() == null ) {
+            return p;
+        }
+        String[] parts = header.getValue().split(",");
+
+        if( parts == null || parts.length < 1 ) {
+            parts = new String[] { header.getValue() };
+        }
+        for( String part : parts ) {
+            String[] s = part.split("=");
+
+            if( s.length == 2 ) {
+                p.setProperty(s[0].trim(), s[1].trim());
+            }
+        }
+        return p;
     }
 
     private @Nonnull String toSignatureString(@Nonnull HttpRequestBase method, @Nonnull String contentType, @Nonnull String range, @Nonnull String date, @Nonnull URI resource, @Nonnull List<Header> emcHeaders) {
@@ -520,8 +897,13 @@ public class AtmosMethod {
                 }
             }
         }
+        String path = resource.getRawPath().toLowerCase();
 
-        return (method.getMethod()  + "\n" + contentType + "\n" + range + "\n" + date + "\n" + resource.getRawPath().toLowerCase() + "\n" + emcHeaderString.toString());
+        if( resource.getRawQuery() != null) {
+            path = path + "?" + resource.getRawQuery().toLowerCase();
+        }
+
+        return (method.getMethod()  + "\n" + contentType + "\n" + range + "\n" + date + "\n" + path + "\n" + emcHeaderString.toString());
     }
 
     public @Nonnull Blob upload(@Nonnull String bucket, @Nonnull String name, @Nonnull String contentType, @Nonnull String content) throws CloudException, InternalException {
@@ -530,7 +912,7 @@ public class AtmosMethod {
         }
         if( wire.isDebugEnabled() ) {
             wire.debug("");
-            wire.debug("--------------------------------------------------------------------------------------");
+            wire.debug(">>> [POST/upload text] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
         }
         try {
             ProviderContext ctx = provider.getContext();
@@ -591,7 +973,7 @@ public class AtmosMethod {
                 logger.trace("EXIT - " + AtmosMethod.class.getName() + ".upload()");
             }
             if( wire.isDebugEnabled() ) {
-                wire.debug("--------------------------------------------------------------------------------------");
+                wire.debug("<<< [POST/upload text] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
                 wire.debug("");
             }
         }
@@ -603,7 +985,7 @@ public class AtmosMethod {
         }
         if( wire.isDebugEnabled() ) {
             wire.debug("");
-            wire.debug("--------------------------------------------------------------------------------------");
+            wire.debug(">>> [POST/upload binary] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
         }
         try {
             ProviderContext ctx = provider.getContext();
@@ -658,7 +1040,7 @@ public class AtmosMethod {
                 logger.trace("EXIT - " + AtmosMethod.class.getName() + ".upload()");
             }
             if( wire.isDebugEnabled() ) {
-                wire.debug("--------------------------------------------------------------------------------------");
+                wire.debug("<<< [POST/upload binary] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
                 wire.debug("");
             }
         }

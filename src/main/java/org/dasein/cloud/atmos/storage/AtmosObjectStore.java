@@ -20,20 +20,28 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.NameRules;
 import org.dasein.cloud.OperationNotSupportedException;
+import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.atmos.Atmos;
 import org.dasein.cloud.atmos.AtmosMethod;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.storage.AbstractBlobStoreSupport;
 import org.dasein.cloud.storage.Blob;
 import org.dasein.cloud.storage.FileTransfer;
+import org.dasein.util.Jiterator;
+import org.dasein.util.JiteratorPopulator;
+import org.dasein.util.PopulatorThread;
 import org.dasein.util.uom.storage.*;
 import org.dasein.util.uom.storage.Byte;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Locale;
 
 /**
@@ -97,27 +105,143 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
 
     @Override
     public boolean exists(@Nonnull String bucket) throws InternalException, CloudException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        while( bucket.startsWith("/") && !bucket.equals("/") ) {
+            bucket = bucket.substring(1);
+        }
+        if( bucket.equals("/") ) {
+            return true;
+        }
+        int idx = bucket.lastIndexOf("/");
+
+        if( idx < 0 ) {
+            for( Blob b : list(null) ) {
+                String name = b.getBucketName();
+
+                if( name != null && name.equals(bucket) ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        String root = bucket.substring(0, idx);
+
+        for( Blob b : list(root) ) {
+            String name = b.getBucketName();
+
+            if( name != null && name.equals(bucket) ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
     protected void get(@Nullable String bucket, @Nonnull String object, @Nonnull File toFile, @Nullable FileTransfer transfer) throws InternalException, CloudException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        if( bucket == null ) {
+            throw new CloudException("No bucket was specified");
+        }
+        IOException lastError = null;
+        int attempts = 0;
+
+        while( attempts < 5 ) {
+            AtmosMethod method = new AtmosMethod(provider);
+
+            try {
+                InputStream input = method.download(bucket, object);
+
+                try {
+                    copy(input, new FileOutputStream(toFile), transfer);
+                    return;
+                }
+                catch( FileNotFoundException e ) {
+                    e.printStackTrace();
+                    throw new InternalException(e);
+                }
+                catch( IOException e ) {
+                    lastError = e;
+                    try { Thread.sleep(10000L); }
+                    catch( InterruptedException ignore ) { }
+                }
+                finally {
+                    input.close();
+                }
+            }
+            catch( IOException e ) {
+                e.printStackTrace();
+                throw new CloudException(e);
+            }
+            attempts++;
+        }
+        if( lastError != null ) {
+            lastError.printStackTrace();
+            throw new InternalException(lastError);
+        }
+        else {
+            throw new InternalException("Unknown error");
+        }
     }
 
     @Override
-    public Blob getBucket(@Nonnull String bucketName) throws InternalException, CloudException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public Blob getBucket(@Nonnull String bucket) throws InternalException, CloudException {
+        while( bucket.startsWith("/") && !bucket.equals("/") ) {
+            bucket = bucket.substring(1);
+        }
+        if( bucket.equals("/") ) {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new CloudException("No context was set for this request");
+            }
+            String regionId = ctx.getRegionId();
+
+            if( regionId == null ) {
+                throw new CloudException("No region was set for this request");
+            }
+            return Blob.getInstance(regionId, "/rest/namespace/", "/", 0);
+        }
+        int idx = bucket.lastIndexOf("/");
+
+        if( idx < 0 ) {
+            for( Blob b : list(null) ) {
+                String name = b.getBucketName();
+
+                if( name != null && name.equals(bucket) ) {
+                    return b;
+                }
+            }
+            return null;
+        }
+        String root = bucket.substring(0, idx);
+
+        for( Blob b : list(root) ) {
+            String name = b.getBucketName();
+
+            if( name != null && name.equals(bucket) ) {
+                return b;
+            }
+        }
+        return null;
     }
 
     @Override
     public Blob getObject(@Nullable String bucketName, @Nonnull String objectName) throws InternalException, CloudException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        if( bucketName == null ) {
+            throw new CloudException("No such object: /" + objectName);
+        }
+        AtmosMethod method = new AtmosMethod(provider);
+
+        return method.info(bucketName, objectName);
     }
 
     @Override
     public Storage<Byte> getObjectSize(@Nullable String bucketName, @Nullable String objectName) throws InternalException, CloudException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        if( bucketName == null ) {
+            throw new CloudException("No such object: /" + objectName);
+        }
+        AtmosMethod method = new AtmosMethod(provider);
+        Blob object = method.info(bucketName, objectName);
+
+        return (object == null ? null : object.getSize());
     }
 
     @Override
@@ -163,14 +287,41 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
 
     @Override
     public boolean isSubscribed() throws CloudException, InternalException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        try {
+            AtmosMethod method = new AtmosMethod(provider);
+
+            method.list("/");
+            return true;
+        }
+        catch( CloudException e ) {
+            if( e.getHttpCode() == HttpServletResponse.SC_FORBIDDEN ) {
+                return false;
+            }
+            throw e;
+        }
     }
 
     @Override
-    public @Nonnull Iterable<Blob> list(@Nullable String bucket) throws CloudException, InternalException {
-        AtmosMethod method = new AtmosMethod(provider);
+    public @Nonnull Iterable<Blob> list(final @Nullable String bucket) throws CloudException, InternalException {
+        PopulatorThread<Blob> populator = new PopulatorThread<Blob>(new JiteratorPopulator<Blob>() {
+            @Override
+            public void populate(@Nonnull Jiterator<Blob> iterator) throws Exception {
+                try {
+                    AtmosMethod method = new AtmosMethod(provider);
 
-        return method.list(bucket == null ? "/" : bucket);
+                    for( Blob b : method.list(bucket == null ? "/" : bucket) ) {
+                        iterator.push(b);
+                    }
+                }
+                finally {
+                    provider.release();
+                }
+            }
+        });
+
+        provider.hold();
+        populator.populate();
+        return populator.getResult();
     }
 
     @Override
@@ -227,18 +378,77 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
 
     @Override
     public void removeBucket(@Nonnull String bucket) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        AtmosMethod method = new AtmosMethod(provider);
+
+        method.delete(bucket, null);
     }
 
     @Override
     public void removeObject(@Nullable String bucket, @Nonnull String object) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        if( bucket == null ) {
+            throw new CloudException("No such object: /" + object);
+        }
+        AtmosMethod method = new AtmosMethod(provider);
+
+        method.delete(bucket, object);
     }
 
-    @Nonnull
     @Override
-    public String renameBucket(@Nonnull String oldName, @Nonnull String newName, boolean findFreeName) throws CloudException, InternalException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public @Nonnull String renameBucket(@Nonnull String oldName, @Nonnull String newName, boolean findFreeName) throws CloudException, InternalException {
+        Blob bucket = getBucket(oldName);
+
+        if( bucket == null ) {
+            throw new CloudException("No such object: /" + oldName);
+        }
+        while( oldName.startsWith("/") && !oldName.equals("/") ) {
+            oldName = oldName.substring(1);
+        }
+        if( oldName.equals("/") ) {
+            throw new CloudException("Cannot rename the root directory");
+        }
+        while( oldName.endsWith("/") ) {
+            oldName = oldName.substring(0, oldName.length()-1);
+        }
+        while( newName.startsWith("/") && !newName.equals("/") ) {
+            newName = newName.substring(1);
+        }
+        if( newName.equals("/") ) {
+            throw new CloudException("Cannot rename a directory to the root");
+        }
+        while( newName.endsWith("/") ) {
+            newName = newName.substring(0, newName.length()-1);
+        }
+        int idx = oldName.lastIndexOf("/");
+        String oldRoot;
+
+        if( idx < 0 ) {
+            oldRoot = null;
+        }
+        else {
+            oldRoot = oldName.substring(0, idx);
+            oldName = oldName.substring(idx+1);
+        }
+
+        String newRoot;
+
+        idx = newName.lastIndexOf("/");
+        if( idx < 0 ) {
+            newRoot = null;
+        }
+        else {
+            newRoot = newName.substring(0, idx);
+            newName = newName.substring(idx+1);
+        }
+        if( (oldRoot == null && newRoot == null) || (oldRoot != null && oldRoot.equals(newRoot)) ) {
+            AtmosMethod method = new AtmosMethod(provider);
+
+            method.rename("/", oldName, newName);
+            return (oldRoot == null ? newName : oldRoot + "/" + newName);
+        }
+        else {
+            // TODO: rename to new root
+            return null;
+        }
     }
 
     @Override
