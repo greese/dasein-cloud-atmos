@@ -238,7 +238,7 @@
                 
             </systemProperties>
           <includes>
-            <include>**/AtmosTestSuite.java</include>
+            <!-- <include>**/AtmosTestSuite.java</include> -->
           </includes>
         </configuration>
       </plugin>     
