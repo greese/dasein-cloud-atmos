@@ -134,6 +134,7 @@ public class AtmosGeography implements DataCenterServices {
                 region.setAvailable(true);
                 region.setName("US 1");
                 region.setProviderRegionId("us");
+                region.setJurisdiction("US");
                 tmp.add(region);
             }
             else {
@@ -141,6 +142,7 @@ public class AtmosGeography implements DataCenterServices {
                 region.setAvailable(true);
                 region.setName("Region 1");
                 region.setProviderRegionId("r1");
+                region.setJurisdiction("US");
                 tmp.add(region);
             }
             regions = tmp;

@@ -971,7 +971,7 @@ public class AtmosMethod {
             int status = response.getStatusLine().getStatusCode();
 
             if( status == HttpServletResponse.SC_CREATED ) {
-                return toBlob(ctx, response, bucket + name, null, null);
+                return toBlob(ctx, response, bucket, name, null);
             }
             else {
                 throw new AtmosException(response);
@@ -1038,7 +1038,7 @@ public class AtmosMethod {
             int status = response.getStatusLine().getStatusCode();
 
             if( status == HttpServletResponse.SC_CREATED ) {
-                return toBlob(ctx, response, bucket + name, null, null);
+                return toBlob(ctx, response, bucket, name, null);
             }
             else {
                 throw new AtmosException(response);

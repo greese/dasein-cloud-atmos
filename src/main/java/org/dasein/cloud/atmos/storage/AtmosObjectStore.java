@@ -226,7 +226,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
     @Override
     public Blob getObject(@Nullable String bucketName, @Nonnull String objectName) throws InternalException, CloudException {
         if( bucketName == null ) {
-            throw new CloudException("No such object: /" + objectName);
+            return null;
         }
         AtmosMethod method = new AtmosMethod(provider);
 
@@ -459,7 +459,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
     @Override
     public @Nonnull Blob upload(@Nonnull File sourceFile, @Nullable String bucket, @Nonnull String objectName) throws CloudException, InternalException {
         if( bucket == null || bucket.equals("/") ) {
-            throw new CloudException("You may not upload objects into the root");
+            throw new OperationNotSupportedException("You may not upload objects into the root");
         }
         AtmosMethod method = new AtmosMethod(provider);
 
