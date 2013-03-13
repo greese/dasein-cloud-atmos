@@ -1,6 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 <!--
-    Copyright (C) 2012 Enstratius, Inc. (http://www.enstratius.com)
+    Copyright (C) 2012-2013 Enstratius, Inc. (http://www.enstratius.com)
 
     ====================================================================
     Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,7 @@
 
   <groupId>org.dasein</groupId>
   <artifactId>dasein-cloud-atmos</artifactId>
-  <version>2013.04.1-SNAPSHOT</version>
+  <version>2013.07-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <name>dasein-cloud-atmos</name>
@@ -63,7 +63,7 @@
     <dependency>
         <groupId>org.dasein</groupId>
         <artifactId>dasein-cloud-core</artifactId>
-        <version>2013.04</version>
+        <version>2013.07-SNAPSHOT</version>
         <scope>compile</scope>
         <optional>false</optional>
     </dependency>
@@ -99,7 +99,7 @@
       <dependency>
           <groupId>org.dasein</groupId>
           <artifactId>dasein-cloud-test</artifactId>
-          <version>2013.04</version>
+          <version>2013.07-SNAPSHOT</version>
           <scope>test</scope>
           <optional>false</optional>
       </dependency>
@@ -227,9 +227,9 @@
                     <value>${regionId}</value>
                 </property>
             </systemProperties>
-          <excludes>
-            <exclude>**/TestSuite.java</exclude>
-          </excludes>
+          <includes>
+            <include>**/TestSuite.java</include>
+          </includes>
         </configuration>
       </plugin>     
       <plugin>
