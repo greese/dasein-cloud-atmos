@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2012-2013 Enstratius, Inc.
+ * Copyright (C) 2012-2013 Dell, Inc.
+ * See annotations for authorship information
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +19,7 @@
 
 package org.dasein.cloud.atmos.storage;
 
+import org.apache.http.HttpStatus;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.NameRules;
@@ -32,12 +34,11 @@ import org.dasein.cloud.storage.FileTransfer;
 import org.dasein.util.Jiterator;
 import org.dasein.util.JiteratorPopulator;
 import org.dasein.util.PopulatorThread;
-import org.dasein.util.uom.storage.*;
 import org.dasein.util.uom.storage.Byte;
+import org.dasein.util.uom.storage.Storage;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -296,7 +297,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
             return true;
         }
         catch( CloudException e ) {
-            if( e.getHttpCode() == HttpServletResponse.SC_FORBIDDEN ) {
+            if( e.getHttpCode() == HttpStatus.SC_FORBIDDEN ) {
                 return false;
             }
             throw e;

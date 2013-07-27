@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2012-2013 Enstratius, Inc.
+ * Copyright (C) 2012-2013 Dell, Inc.
+ * See annotations for authorship information
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +24,7 @@ import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.HttpVersion;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
@@ -55,7 +57,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import javax.servlet.http.HttpServletResponse;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -172,7 +173,7 @@ public class AtmosMethod {
             }
             int status = response.getStatusLine().getStatusCode();
 
-            if( status == HttpServletResponse.SC_CREATED ) {
+            if( status == HttpStatus.SC_CREATED ) {
                 if( !bucket.equals("/") ) {
                     name = bucket + name;
                 }
@@ -250,7 +251,7 @@ public class AtmosMethod {
             }
             int status = response.getStatusLine().getStatusCode();
 
-            if( status != HttpServletResponse.SC_NO_CONTENT ) {
+            if( status != HttpStatus.SC_NO_CONTENT ) {
                 throw new AtmosException(response);
             }
         }
@@ -316,7 +317,7 @@ public class AtmosMethod {
             }
             int status = response.getStatusLine().getStatusCode();
 
-            if( status == HttpServletResponse.SC_OK ) {
+            if( status == HttpStatus.SC_OK ) {
                 HttpEntity entity = response.getEntity();
 
                 if( entity == null ) {
@@ -461,10 +462,10 @@ public class AtmosMethod {
             }
             int status = response.getStatusLine().getStatusCode();
 
-            if( status == HttpServletResponse.SC_NOT_FOUND ) {
+            if( status == HttpStatus.SC_NOT_FOUND ) {
                 return null;
             }
-            if( status == HttpServletResponse.SC_OK ) {
+            if( status == HttpStatus.SC_OK ) {
                 HttpEntity entity = response.getEntity();
 
                 if( entity == null ) {
@@ -558,7 +559,7 @@ public class AtmosMethod {
             }
             int status = response.getStatusLine().getStatusCode();
 
-            if( status == HttpServletResponse.SC_OK ) {
+            if( status == HttpStatus.SC_OK ) {
                 HttpEntity entity = response.getEntity();
 
                 if( entity == null ) {
@@ -678,7 +679,7 @@ public class AtmosMethod {
             }
             int status = response.getStatusLine().getStatusCode();
 
-            if( status != HttpServletResponse.SC_NO_CONTENT ) {
+            if( status != HttpStatus.SC_NO_CONTENT ) {
                 throw new AtmosException(response);
             }
         }
@@ -972,7 +973,7 @@ public class AtmosMethod {
             }
             int status = response.getStatusLine().getStatusCode();
 
-            if( status == HttpServletResponse.SC_CREATED ) {
+            if( status == HttpStatus.SC_CREATED ) {
                 return toBlob(ctx, response, bucket, name, null);
             }
             else {
@@ -1039,7 +1040,7 @@ public class AtmosMethod {
             }
             int status = response.getStatusLine().getStatusCode();
 
-            if( status == HttpServletResponse.SC_CREATED ) {
+            if( status == HttpStatus.SC_CREATED ) {
                 return toBlob(ctx, response, bucket, name, null);
             }
             else {

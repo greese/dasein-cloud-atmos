@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2012-2013 Enstratius, Inc.
+ * Copyright (C) 2012-2013 Dell, Inc.
+ * See annotations for authorship information
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,7 +37,7 @@ public class AtmosStorageServices extends AbstractStorageServices {
     public AtmosStorageServices(Atmos provider) { this.provider = provider; }
 
     @Override
-    public @Nonnull AtmosObjectStore getBlobStoreSupport() {
+    public @Nonnull AtmosObjectStore getOnlineStorageSupport() {
         return new AtmosObjectStore(provider);
     }
 }
