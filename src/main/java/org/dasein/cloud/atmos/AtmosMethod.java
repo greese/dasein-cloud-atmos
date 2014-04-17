@@ -129,6 +129,7 @@ public class AtmosMethod {
             wire.debug("");
             wire.debug(">>> [POST/create directory] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
         }
+        HttpClient client = null;
         try {
             ProviderContext ctx = provider.getContext();
 
@@ -146,7 +147,7 @@ public class AtmosMethod {
             }
             String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, bucket + name);
             HttpPost post = new HttpPost(endpoint);
-            HttpClient client = getClient(endpoint);
+            client = getClient(endpoint);
 
             post.addHeader("Accept", "*/*");
             post.addHeader("Content-Type", "application/octet-stream");
@@ -191,6 +192,9 @@ public class AtmosMethod {
                 wire.debug("<<< [POST/create directory] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
                 wire.debug("");
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         }
     }
 
@@ -202,6 +206,7 @@ public class AtmosMethod {
             wire.debug("");
             wire.debug(">>> [DELETE] -> " + bucketName + "--------------------------------------------------------------------------------------");
         }
+        HttpClient client = null;
         try {
             ProviderContext ctx = provider.getContext();
 
@@ -224,7 +229,7 @@ public class AtmosMethod {
             }
             String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, bucketName);
             HttpDelete delete = new HttpDelete(endpoint);
-            HttpClient client = getClient(endpoint);
+            client = getClient(endpoint);
 
             delete.addHeader("Accept", "*/*");
             delete.addHeader("Content-Type", "application/octet-stream");
@@ -263,6 +268,9 @@ public class AtmosMethod {
                 wire.debug("<<< [DELETE] -> " + bucketName + "--------------------------------------------------------------------------------------");
                 wire.debug("");
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         }
     }
 
@@ -274,6 +282,7 @@ public class AtmosMethod {
             wire.debug("");
             wire.debug(">>> [GET/download] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
         }
+        HttpClient client = null;
         try {
             ProviderContext ctx = provider.getContext();
 
@@ -291,7 +300,7 @@ public class AtmosMethod {
             }
             String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, bucket + name);
             HttpGet get = new HttpGet(endpoint);
-            HttpClient client = getClient(endpoint);
+            client = getClient(endpoint);
 
             get.addHeader("Accept", "*/*");
             authorize(ctx, get, "", null);
@@ -346,6 +355,9 @@ public class AtmosMethod {
             if( wire.isDebugEnabled() ) {
                 wire.debug("<<< [GET/download] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
                 wire.debug("");
+            }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
             }
         }
     }
@@ -408,6 +420,7 @@ public class AtmosMethod {
             wire.debug("");
             wire.debug(">>> [GET/info] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
         }
+        HttpClient client = null;
         try {
             ProviderContext ctx = provider.getContext();
 
@@ -436,7 +449,7 @@ public class AtmosMethod {
             }
             String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, target);
             HttpGet get = new HttpGet(endpoint + "?metadata/system");
-            HttpClient client = getClient(endpoint);
+            client = getClient(endpoint);
 
             get.addHeader("Accept", "*/*");
             authorize(ctx, get, "", null);
@@ -510,6 +523,9 @@ public class AtmosMethod {
                 wire.debug("<<< [GET/info] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
                 wire.debug("");
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         }
     }
 
@@ -521,6 +537,7 @@ public class AtmosMethod {
             wire.debug("");
             wire.debug(">>> [GET] -> " + directory + "--------------------------------------------------------------------------------------");
         }
+        HttpClient client = null;
         try {
             ProviderContext ctx = provider.getContext();
 
@@ -532,7 +549,7 @@ public class AtmosMethod {
             }
             String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, directory);
             HttpGet get = new HttpGet(endpoint);
-            HttpClient client = getClient(endpoint);
+            client = getClient(endpoint);
 
             get.addHeader("x-emc-include-meta", "true");
             get.addHeader("Accept", "text/xml");
@@ -619,6 +636,9 @@ public class AtmosMethod {
                 wire.debug("<<< [GET] " + directory + "--------------------------------------------------------------------------------------");
                 wire.debug("");
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         }
 
     }
@@ -631,6 +651,7 @@ public class AtmosMethod {
             wire.debug("");
             wire.debug(">>> [POST/rename] -> " + root + " / " + oldName + " / " + newName + "--------------------------------------------------------------------------------------");
         }
+        HttpClient client = null;
         try {
             ProviderContext ctx = provider.getContext();
 
@@ -651,7 +672,7 @@ public class AtmosMethod {
             }
             String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, root + oldName);
             HttpPost post = new HttpPost(endpoint + "?rename");
-            HttpClient client = getClient(endpoint);
+            client = getClient(endpoint);
 
             post.addHeader("Accept", "*/*");
             post.addHeader("Content-Type", "application/octet-stream");
@@ -690,6 +711,9 @@ public class AtmosMethod {
             if( wire.isDebugEnabled() ) {
                 wire.debug("<<< [POST/rename] -> " +  root + " / " + oldName + " / " + newName  + "--------------------------------------------------------------------------------------");
                 wire.debug("");
+            }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
             }
         }
     }
@@ -926,6 +950,7 @@ public class AtmosMethod {
             wire.debug("");
             wire.debug(">>> [POST/upload text] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
         }
+        HttpClient client = null;
         try {
             ProviderContext ctx = provider.getContext();
 
@@ -940,7 +965,7 @@ public class AtmosMethod {
             }
             String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, bucket + name);
             HttpPost post = new HttpPost(endpoint);
-            HttpClient client = getClient(endpoint);
+            client = getClient(endpoint);
 
             authorize(ctx, post, contentType, null);
             try {
@@ -988,6 +1013,9 @@ public class AtmosMethod {
                 wire.debug("<<< [POST/upload text] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
                 wire.debug("");
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         }
     }
 
@@ -999,6 +1027,7 @@ public class AtmosMethod {
             wire.debug("");
             wire.debug(">>> [POST/upload binary] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
         }
+        HttpClient client = null;
         try {
             ProviderContext ctx = provider.getContext();
 
@@ -1014,7 +1043,7 @@ public class AtmosMethod {
             long length = size.convertTo(Storage.BYTE).getQuantity().longValue();
             String endpoint = getEndpoint(ctx, EndpointType.NAMESPACE, bucket + name);
             HttpPost post = new HttpPost(endpoint);
-            HttpClient client = getClient(endpoint);
+            client = getClient(endpoint);
 
             authorize(ctx, post, "application/octet-stream", null);
             post.setEntity(new InputStreamEntity(input, length, ContentType.APPLICATION_OCTET_STREAM));
@@ -1054,6 +1083,9 @@ public class AtmosMethod {
             if( wire.isDebugEnabled() ) {
                 wire.debug("<<< [POST/upload binary] -> " + bucket + " / " + name + "--------------------------------------------------------------------------------------");
                 wire.debug("");
+            }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
             }
         }
     }
