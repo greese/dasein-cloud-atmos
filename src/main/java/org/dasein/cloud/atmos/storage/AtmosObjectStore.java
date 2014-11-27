@@ -22,7 +22,6 @@ package org.dasein.cloud.atmos.storage;
 import org.apache.http.HttpStatus;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
-import org.dasein.cloud.NameRules;
 import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.atmos.Atmos;
@@ -31,6 +30,7 @@ import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.storage.AbstractBlobStoreSupport;
 import org.dasein.cloud.storage.Blob;
 import org.dasein.cloud.storage.FileTransfer;
+import org.dasein.cloud.util.NamingConstraints;
 import org.dasein.util.Jiterator;
 import org.dasein.util.JiteratorPopulator;
 import org.dasein.util.PopulatorThread;
@@ -54,10 +54,8 @@ import java.util.Locale;
  * @version 2012.09 initial version
  * @since 2012.09
  */
-public class AtmosObjectStore extends AbstractBlobStoreSupport {
-    private Atmos provider;
-
-    AtmosObjectStore(Atmos provider) { this.provider = provider; }
+public class AtmosObjectStore extends AbstractBlobStoreSupport<Atmos> {
+    AtmosObjectStore(Atmos provider) { super(provider); }
 
 
     @Override
@@ -92,7 +90,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
             }
             tmp = (bucket) + "-" + (idx++);
         }
-        AtmosMethod method = new AtmosMethod(provider);
+        AtmosMethod method = new AtmosMethod(getProvider());
 
         idx = tmp.lastIndexOf("/");
         if( idx > -1 ) {
@@ -147,7 +145,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
         int attempts = 0;
 
         while( attempts < 5 ) {
-            AtmosMethod method = new AtmosMethod(provider);
+            AtmosMethod method = new AtmosMethod(getProvider());
 
             try {
                 InputStream input = method.download(bucket, object);
@@ -190,7 +188,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
             bucket = bucket.substring(1);
         }
         if( bucket.equals("/") ) {
-            ProviderContext ctx = provider.getContext();
+            ProviderContext ctx = getProvider().getContext();
 
             if( ctx == null ) {
                 throw new CloudException("No context was set for this request");
@@ -231,9 +229,14 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
         if( bucketName == null ) {
             return null;
         }
-        AtmosMethod method = new AtmosMethod(provider);
+        AtmosMethod method = new AtmosMethod(getProvider());
 
         return method.info(bucketName, objectName);
+    }
+
+    @Override
+    public @Nullable String getSignedObjectUrl( @Nonnull String bucket, @Nonnull String object, @Nonnull String expiresEpochInSeconds ) throws InternalException, CloudException {
+        return null;
     }
 
     @Override
@@ -241,7 +244,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
         if( bucketName == null ) {
             throw new CloudException("No such object: /" + objectName);
         }
-        AtmosMethod method = new AtmosMethod(provider);
+        AtmosMethod method = new AtmosMethod(getProvider());
         Blob object = method.info(bucketName, objectName);
 
         return (object == null ? null : object.getSize());
@@ -263,14 +266,13 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
     }
 
     @Override
-    public @Nonnull NameRules getBucketNameRules() throws CloudException, InternalException {
+    public @Nonnull NamingConstraints getBucketNameRules() throws CloudException, InternalException {
         return getObjectNameRules();
     }
 
     @Override
-    public @Nonnull NameRules getObjectNameRules() throws CloudException, InternalException {
-        return NameRules.getInstance(2, 100, true, true, true,
-                new char[] { '#', '%', '^', '[', ']', '{', '}', '|', '\\', '"', ' ', ',', '<', '>', '-', '.', '_', '~', '!', '$', '\'', '(', ')', '*', '+', ',', ';', '=', ':'});
+    public @Nonnull NamingConstraints getObjectNameRules() throws CloudException, InternalException {
+        return NamingConstraints.getAlphaNumeric(2, 100).constrainedBy('#', '%', '^', '[', ']', '{', '}', '|', '\\', '"', ' ', ',', '<', '>', '-', '.', '_', '~', '!', '$', '\'', '(', ')', '*', '+', ',', ';', '=', ':');
     }
 
     @Override
@@ -291,7 +293,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
     @Override
     public boolean isSubscribed() throws CloudException, InternalException {
         try {
-            AtmosMethod method = new AtmosMethod(provider);
+            AtmosMethod method = new AtmosMethod(getProvider());
 
             method.list("/");
             return true;
@@ -310,19 +312,19 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
             @Override
             public void populate(@Nonnull Jiterator<Blob> iterator) throws Exception {
                 try {
-                    AtmosMethod method = new AtmosMethod(provider);
+                    AtmosMethod method = new AtmosMethod(getProvider());
 
                     for( Blob b : method.list(bucket == null ? "/" : bucket) ) {
                         iterator.push(b);
                     }
                 }
                 finally {
-                    provider.release();
+                    getProvider().release();
                 }
             }
         });
 
-        provider.hold();
+        getProvider().hold();
         populator.populate();
         return populator.getResult();
     }
@@ -352,7 +354,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
         if( b == null ) {
             throw new CloudException("No such object: " + bucket + "/" + objectName);
         }
-        AtmosMethod method = new AtmosMethod(provider);
+        AtmosMethod method = new AtmosMethod(getProvider());
 
         try {
             method.upload(bucket, objectName, new FileInputStream(file), new Storage<org.dasein.util.uom.storage.Byte>(file.length(), Storage.BYTE));
@@ -373,7 +375,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
         if( b == null ) {
             throw new CloudException("No such object: " + bucketName + "/" + objectName);
         }
-        AtmosMethod method = new AtmosMethod(provider);
+        AtmosMethod method = new AtmosMethod(getProvider());
 
         method.upload(bucketName, objectName, "text/plain", content);
     }
@@ -381,7 +383,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
 
     @Override
     public void removeBucket(@Nonnull String bucket) throws CloudException, InternalException {
-        AtmosMethod method = new AtmosMethod(provider);
+        AtmosMethod method = new AtmosMethod(getProvider());
 
         method.delete(bucket, null);
     }
@@ -391,7 +393,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
         if( bucket == null ) {
             throw new CloudException("No such object: /" + object);
         }
-        AtmosMethod method = new AtmosMethod(provider);
+        AtmosMethod method = new AtmosMethod(getProvider());
 
         method.delete(bucket, object);
     }
@@ -443,7 +445,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
             newName = newName.substring(idx+1);
         }
         if( (oldRoot == null && newRoot == null) || (oldRoot != null && oldRoot.equals(newRoot)) ) {
-            AtmosMethod method = new AtmosMethod(provider);
+            AtmosMethod method = new AtmosMethod(getProvider());
 
             method.rename("/", oldName, newName);
             return (oldRoot == null ? newName : oldRoot + "/" + newName);
@@ -464,7 +466,7 @@ public class AtmosObjectStore extends AbstractBlobStoreSupport {
         if( bucket == null || bucket.equals("/") ) {
             throw new OperationNotSupportedException("You may not upload objects into the root");
         }
-        AtmosMethod method = new AtmosMethod(provider);
+        AtmosMethod method = new AtmosMethod(getProvider());
 
         try {
             return method.upload(bucket, objectName, new FileInputStream(sourceFile), new Storage<org.dasein.util.uom.storage.Byte>(sourceFile.length(), Storage.BYTE));

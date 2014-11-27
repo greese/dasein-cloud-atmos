@@ -21,14 +21,13 @@ package org.dasein.cloud.atmos;
 
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
-import org.dasein.cloud.dc.DataCenter;
-import org.dasein.cloud.dc.DataCenterServices;
-import org.dasein.cloud.dc.Region;
+import org.dasein.cloud.dc.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -38,10 +37,20 @@ import java.util.Locale;
  * @version 2012.09 initial version
  * @since 2012.09
  */
-public class AtmosGeography implements DataCenterServices {
+public class AtmosGeography extends AbstractDataCenterServices<Atmos> {
     private Atmos provider;
 
-    AtmosGeography(@Nonnull Atmos provider) { this.provider = provider; }
+    AtmosGeography(@Nonnull Atmos provider) { super(provider); }
+
+    private volatile transient GeographyCapabilities capabilities;
+
+    @Override
+    public @Nonnull DataCenterCapabilities getCapabilities() throws InternalException, CloudException {
+        if( capabilities == null ) {
+            capabilities = new GeographyCapabilities(getProvider());
+        }
+        return capabilities;
+    }
 
     @Override
     public @Nullable DataCenter getDataCenter(@Nonnull String dataCenterId) throws InternalException, CloudException {
@@ -73,16 +82,6 @@ public class AtmosGeography implements DataCenterServices {
     }
 
     @Override
-    public @Nonnull String getProviderTermForDataCenter(@Nonnull Locale locale) {
-        return "data center";
-    }
-
-    @Override
-    public @Nonnull String getProviderTermForRegion(@Nonnull Locale locale) {
-        return "region";
-    }
-
-    @Override
     public @Nullable Region getRegion(@Nonnull String providerRegionId) throws InternalException, CloudException {
         for( Region r : listRegions() ) {
             if( providerRegionId.equals(r.getProviderRegionId()) ) {
@@ -99,7 +98,7 @@ public class AtmosGeography implements DataCenterServices {
         if( region == null ) {
             throw new CloudException("No such region: " + providerRegionId);
         }
-        ArrayList<DataCenter> dataCenters= new ArrayList<DataCenter>();
+        List<DataCenter> dataCenters= new ArrayList<DataCenter>();
 
         if( providerRegionId.equals("us") && provider.getAtmosProvider().equals(AtmosProvider.ATT) ) {
             DataCenter dc = new DataCenter();
@@ -129,7 +128,7 @@ public class AtmosGeography implements DataCenterServices {
     @Override
     public Collection<Region> listRegions() throws InternalException, CloudException {
         if( regions == null ) {
-            ArrayList<Region> tmp = new ArrayList<Region>();
+            List<Region> tmp = new ArrayList<Region>();
             Region region = new Region();
 
             if( provider.getAtmosProvider().equals(AtmosProvider.ATT) ) {
